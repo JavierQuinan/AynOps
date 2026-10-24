@@ -1,4 +1,6 @@
 """Offline integration tests for experimental pinned-IP HTTP transport."""
+from typing import ClassVar
+
 import pytest
 
 from utils import network_transport
@@ -27,7 +29,7 @@ class FakeResponse:
 
 
 class FakeConnection:
-    instances = []
+    instances: ClassVar[list] = []
     peer = "8.8.8.8"
 
     def __init__(self, host, port, timeout):
