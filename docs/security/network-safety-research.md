@@ -38,3 +38,11 @@ pytest run, CI success, or exploit reproduction is claimed here.
 ## Next gate
 Run the complete suite in a checkout, then build a connection-pinned HTTP
 transport with deterministic tests before changing the MCP entry point.
+
+## CI investigation — 2026-10-24
+The general Tests workflow on commit 7fb28b0 reported 673 passed and 6
+expected failures, followed by four Ruff violations (three RUF012 and one
+F401). The research branch subsequently corrected these issues. Earlier
+workflow runs on individual fix commits may represent intermediate branch
+states; a fresh complete CI run is required before claiming success.
+The pinned-IP transport remains experimental and is not integrated into MCP.
