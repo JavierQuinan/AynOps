@@ -174,7 +174,7 @@ def test_response_at_exact_body_limit_is_accepted(fake_transport):
     assert fake_transport.connections[0].closed
 
 
-def test_read_failure_still_closes_connection(fake_transport, monkeypatch):
+def test_read_failure_still_closes_connection(fake_transport):
     class BrokenResponse(FakeResponse):
         def read(self, limit):
             raise OSError("connection interrupted")
@@ -182,4 +182,48 @@ def test_read_failure_still_closes_connection(fake_transport, monkeypatch):
     fake_transport.responses = [BrokenResponse()]
     with pytest.raises(OSError, match="interrupted"):
         network_transport.fetch_public_http("http://example.com/", resolver=_resolver)
+    assert fake_transport.connections[0].closed
+
+
+@pytest.mark.parametrize(
+    ("timeout", "max_redirects", "max_body_bytes"),
+    [
+        (0, 5, 512_000),
+        (-1, 5, 512_000),
+        (10, -1, 512_000),
+        (10, 5, -1),
+    ],
+)
+def test_invalid_resource_limits_rejected_before_connection(
+    fake_transport, timeout, max_redirects, max_body_bytes
+):
+    with pytest.raises(ValueError, match="resource limits"):
+        network_transport.fetch_public_http(
+            "http://example.com/",
+            resolver=_resolver,
+            timeout=timeout,
+            max_redirects=max_redirects,
+            max_body_bytes=max_body_bytes,
+        )
+    assert fake_transport.connections == []
+
+
+def test_tls_context_receives_original_hostname(fake_transport, monkeypatch):
+    fake_transport.responses = [FakeResponse(200)]
+    seen = []
+
+    class RecordingContext:
+        def wrap_socket(self, sock, *, server_hostname):
+            seen.append(server_hostname)
+            return sock
+
+    monkeypatch.setattr(
+        network_transport.ssl, "create_default_context", RecordingContext
+    )
+    result = network_transport.fetch_public_http(
+        "https://example.com/", resolver=_resolver
+    )
+    assert result.status_code == 200
+    assert seen == ["example.com"]
+    assert fake_transport.connections[0].host == "8.8.8.8"
     assert fake_transport.connections[0].closed
