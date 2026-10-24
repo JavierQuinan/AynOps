@@ -117,11 +117,11 @@ def test_https_downgrade_redirect_rejected_before_second_connection(
     fake_transport, monkeypatch
 ):
     fake_transport.responses = [FakeResponse(302, "http://public.example/")]
-    monkeypatch.setattr(
-        network_transport.ssl,
-        "create_default_context",
-        lambda: type("Context", (), {"wrap_socket": lambda self, sock, *, server_hostname: sock})(),
-    )
+    class Context:
+        def wrap_socket(self, sock, *, server_hostname):
+            return sock
+
+    monkeypatch.setattr(network_transport.ssl, "create_default_context", Context)
     with pytest.raises(UnsafeDestination, match="downgrade"):
         network_transport.fetch_public_http("https://example.com/", resolver=_resolver)
     assert len(fake_transport.connections) == 1
