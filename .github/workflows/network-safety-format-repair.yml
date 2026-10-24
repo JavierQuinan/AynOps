@@ -1,0 +1,65 @@
+name: Research Branch Formatting Repair
+
+on:
+  push:
+    branches:
+      - security/network-safety-research
+
+permissions:
+  contents: write
+
+jobs:
+  format-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - name: Format only research files
+        run: |
+          uv run ruff format \
+            tests/test_network_redirects.py \
+            tests/test_network_request_plan.py \
+            tests/test_network_safety_policy.py \
+            tests/test_network_safety_research.py \
+            tests/test_network_safety_urls.py \
+            tests/test_network_transport.py \
+            tests/test_network_transport_adversarial.py \
+            utils/network_redirects.py \
+            utils/network_request_plan.py \
+            utils/network_safety.py \
+            utils/network_transport.py
+      - name: Verify complete suite and style
+        run: |
+          uv run pytest
+          uv run ruff check .
+          uv run ruff format --check .
+      - name: Commit formatted research files only
+        run: |
+          git add -- \
+            tests/test_network_redirects.py \
+            tests/test_network_request_plan.py \
+            tests/test_network_safety_policy.py \
+            tests/test_network_safety_research.py \
+            tests/test_network_safety_urls.py \
+            tests/test_network_transport.py \
+            tests/test_network_transport_adversarial.py \
+            utils/network_redirects.py \
+            utils/network_request_plan.py \
+            utils/network_safety.py \
+            utils/network_transport.py
+          if git diff --cached --quiet; then
+            echo "No formatting changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "style(security-research): apply Ruff formatting to isolated files"
+          git push origin HEAD:security/network-safety-research
