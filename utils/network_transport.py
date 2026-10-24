@@ -7,7 +7,6 @@ and certificate verification. No ambient HTTP proxy is consulted.
 from __future__ import annotations
 
 import http.client
-import socket
 import ssl
 from dataclasses import dataclass
 from urllib.parse import urlsplit
