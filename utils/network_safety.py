@@ -28,10 +28,9 @@ def validate_public_address(address: str) -> str:
 
 
 def validate_http_target(url: str) -> tuple[str, int]:
-    """Return hostname and port for a strictly parsed HTTP(S) URL.
-
-    This parser does not perform DNS resolution or authorize a connection.
-    """
+    """Return hostname and port for a strictly parsed HTTP(S) URL."""
+    if any(ch.isspace() or ord(ch) < 32 or ord(ch) == 127 for ch in url):
+        raise UnsafeDestination("Invalid whitespace or control character")
     try:
         parts = urlsplit(url)
         if parts.scheme not in ("http", "https"):
@@ -43,11 +42,11 @@ def validate_http_target(url: str) -> tuple[str, int]:
         if parts.fragment:
             raise UnsafeDestination("URL fragments are not permitted")
         hostname = parts.hostname
-        port = parts.port or (443 if parts.scheme == "https" else 80)
+        port = parts.port
+        if port is None:
+            port = 443 if parts.scheme == "https" else 80
         if not 1 <= port <= 65535:
             raise UnsafeDestination("Invalid destination port")
-        if any(ch.isspace() or ord(ch) < 32 for ch in url):
-            raise UnsafeDestination("Invalid whitespace or control character")
         return hostname, port
     except ValueError as exc:
         raise UnsafeDestination("Invalid HTTP destination URL") from exc
