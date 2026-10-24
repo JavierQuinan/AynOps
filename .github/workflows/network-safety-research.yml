@@ -28,4 +28,5 @@ jobs:
             tests/test_network_safety_urls.py \
             tests/test_network_redirects.py \
             tests/test_network_request_plan.py \
-            tests/test_network_transport.py
+            tests/test_network_transport.py \
+            tests/test_network_transport_adversarial.py
