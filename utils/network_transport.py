@@ -4,6 +4,7 @@ Each hop resolves and validates all DNS answers, then opens a socket to the
 approved IP, not to the hostname. TLS retains the original hostname for SNI
 and certificate verification. No ambient HTTP proxy is consulted.
 """
+
 from __future__ import annotations
 
 import http.client
@@ -49,7 +50,9 @@ def fetch_public_http(
         if parts.query:
             path += "?" + parts.query
         authority = parts.netloc
-        connection = http.client.HTTPConnection(plan.address, plan.port, timeout=timeout)
+        connection = http.client.HTTPConnection(
+            plan.address, plan.port, timeout=timeout
+        )
         try:
             # Direct socket connect is pinned to the vetted numeric address.
             connection.connect()
@@ -64,9 +67,13 @@ def fetch_public_http(
                 connection.sock = context.wrap_socket(
                     connection.sock, server_hostname=plan.hostname
                 )
-            connection.putrequest("GET", path, skip_host=True, skip_accept_encoding=True)
+            connection.putrequest(
+                "GET", path, skip_host=True, skip_accept_encoding=True
+            )
             connection.putheader("Host", authority)
-            connection.putheader("User-Agent", "Mozilla/5.0 (compatible; SecurityScanner/1.0)")
+            connection.putheader(
+                "User-Agent", "Mozilla/5.0 (compatible; SecurityScanner/1.0)"
+            )
             connection.putheader("Accept-Encoding", "identity")
             connection.endheaders()
             response = connection.getresponse()
@@ -82,8 +89,10 @@ def fetch_public_http(
             if len(body) > max_body_bytes:
                 raise UnsafeDestination("Response body exceeds configured limit")
             return SafeHTTPResult(
-                url=current, status_code=response.status,
-                headers=headers, body=body,
+                url=current,
+                status_code=response.status,
+                headers=headers,
+                body=body,
             )
         finally:
             connection.close()

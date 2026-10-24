@@ -1,4 +1,5 @@
 """Deterministic unit tests for the isolated destination-policy prototype."""
+
 import socket
 
 import pytest
@@ -10,11 +11,21 @@ from utils.network_safety import (
 )
 
 
-@pytest.mark.parametrize("address", [
-    "127.0.0.1", "10.0.0.1", "192.168.1.2", "169.254.169.254",
-    "0.0.0.0", "::1", "fd00::1", "fe80::1", "::ffff:127.0.0.1",
-    "not-an-ip",
-])
+@pytest.mark.parametrize(
+    "address",
+    [
+        "127.0.0.1",
+        "10.0.0.1",
+        "192.168.1.2",
+        "169.254.169.254",
+        "0.0.0.0",
+        "::1",
+        "fd00::1",
+        "fe80::1",
+        "::ffff:127.0.0.1",
+        "not-an-ip",
+    ],
+)
 def test_nonpublic_or_invalid_addresses_rejected(address):
     with pytest.raises(UnsafeDestination):
         validate_public_address(address)
@@ -31,6 +42,7 @@ def test_mixed_dns_results_fail_closed():
             (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("8.8.8.8", port)),
             (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", port)),
         ]
+
     with pytest.raises(UnsafeDestination):
         resolve_public_addresses("example.com", 443, resolver=resolver)
 
@@ -46,4 +58,7 @@ def test_public_dns_results_deduplicated():
             (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("8.8.8.8", port)),
             (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("8.8.8.8", port)),
         ]
-    assert resolve_public_addresses("example.com", 443, resolver=resolver) == ("8.8.8.8",)
+
+    assert resolve_public_addresses("example.com", 443, resolver=resolver) == (
+        "8.8.8.8",
+    )

@@ -1,4 +1,5 @@
 """No-network tests for the connection-pinning contract."""
+
 import socket
 
 import pytest
@@ -15,16 +16,17 @@ def _dns(*addresses):
         result = []
         for address in addresses:
             family = socket.AF_INET6 if ":" in address else socket.AF_INET
-            sockaddr = (address, port, 0, 0) if family == socket.AF_INET6 else (address, port)
+            sockaddr = (
+                (address, port, 0, 0) if family == socket.AF_INET6 else (address, port)
+            )
             result.append((family, socket.SOCK_STREAM, 6, "", sockaddr))
         return result
+
     return resolver
 
 
 def test_plan_keeps_original_tls_hostname_and_pins_public_ip():
-    plan = plan_public_request(
-        "https://example.com/path", resolver=_dns("8.8.8.8")
-    )
+    plan = plan_public_request("https://example.com/path", resolver=_dns("8.8.8.8"))
     assert plan.address == "8.8.8.8"
     assert plan.hostname == "example.com"
     assert plan.port == 443

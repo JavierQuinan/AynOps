@@ -5,6 +5,7 @@ The future transport MUST connect to plan.address (not plan.hostname), use
 plan.hostname for TLS SNI and certificate verification, and ignore ambient
 proxy settings. Constructing a plan alone does not enforce these properties.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

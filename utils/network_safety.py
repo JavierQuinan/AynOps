@@ -4,6 +4,7 @@ This is NOT a complete SSRF mitigation. The HTTP transport must connect to
 an approved IP without resolving the hostname again, validate each redirect,
 and define an explicit proxy policy.
 """
+
 from __future__ import annotations
 
 import ipaddress

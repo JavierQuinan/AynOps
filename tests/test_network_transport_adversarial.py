@@ -1,4 +1,5 @@
 """Additional offline adversarial tests for the experimental HTTP transport."""
+
 import socket
 from typing import ClassVar
 
@@ -83,11 +84,15 @@ def test_redirect_to_public_destination_reconnects(fake_transport):
         FakeResponse(302, "http://public.example/next"),
         FakeResponse(200, body=b"complete"),
     ]
-    result = network_transport.fetch_public_http("http://example.com/", resolver=_resolver)
+    result = network_transport.fetch_public_http(
+        "http://example.com/", resolver=_resolver
+    )
     assert result.url == "http://public.example/next"
     assert result.body == b"complete"
     assert len(fake_transport.connections) == 2
-    assert all(conn.host == "8.8.8.8" and conn.closed for conn in fake_transport.connections)
+    assert all(
+        conn.host == "8.8.8.8" and conn.closed for conn in fake_transport.connections
+    )
 
 
 def test_response_body_limit_enforced(fake_transport):

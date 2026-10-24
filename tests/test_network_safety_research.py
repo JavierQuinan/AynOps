@@ -3,6 +3,7 @@
 Baseline tests document actual HTTP behavior; xfail tests specify a future
 network-safety contract. No real network calls are made.
 """
+
 import socket
 
 import pytest
@@ -25,8 +26,12 @@ def test_baseline_http_client_follows_redirects(monkeypatch):
     assert observed["stream"] is True
 
 
-@pytest.mark.xfail(strict=True, reason="No destination-IP policy before requests.get yet")
-@pytest.mark.parametrize("address", ["127.0.0.1", "10.1.2.3", "169.254.169.254", "fd00::1", "::1"])
+@pytest.mark.xfail(
+    strict=True, reason="No destination-IP policy before requests.get yet"
+)
+@pytest.mark.parametrize(
+    "address", ["127.0.0.1", "10.1.2.3", "169.254.169.254", "fd00::1", "::1"]
+)
 def test_reject_nonpublic_resolution_before_http(monkeypatch, address):
     """Desired future behavior; failure does NOT prove actual socket access."""
     calls = []
@@ -34,7 +39,9 @@ def test_reject_nonpublic_resolution_before_http(monkeypatch, address):
     def fake_getaddrinfo(host, port, *args, **kwargs):
         assert host == "example.com"
         family = socket.AF_INET6 if ":" in address else socket.AF_INET
-        sockaddr = (address, port, 0, 0) if family == socket.AF_INET6 else (address, port)
+        sockaddr = (
+            (address, port, 0, 0) if family == socket.AF_INET6 else (address, port)
+        )
         return [(family, socket.SOCK_STREAM, 6, "", sockaddr)]
 
     def fake_get(*args, **kwargs):

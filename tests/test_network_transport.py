@@ -1,4 +1,5 @@
 """Offline integration tests for experimental pinned-IP HTTP transport."""
+
 from typing import ClassVar
 
 import pytest
@@ -60,6 +61,7 @@ class FakeConnection:
 
 def _resolver(host, port, **kwargs):
     import socket
+
     return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("8.8.8.8", port))]
 
 
@@ -84,7 +86,9 @@ def test_peer_mismatch_rejected_before_request(monkeypatch):
     monkeypatch.setattr(FakeConnection, "peer", "127.0.0.1")
     try:
         with pytest.raises(UnsafeDestination):
-            network_transport.fetch_public_http("http://example.com", resolver=_resolver)
+            network_transport.fetch_public_http(
+                "http://example.com", resolver=_resolver
+            )
         assert FakeConnection.instances[-1].closed
     finally:
         monkeypatch.setattr(FakeConnection, "peer", "8.8.8.8")
@@ -100,7 +104,9 @@ def test_https_uses_original_hostname_for_tls(monkeypatch):
             observed.append(server_hostname)
             return sock
 
-    monkeypatch.setattr(network_transport.ssl, "create_default_context", lambda: Context())
+    monkeypatch.setattr(
+        network_transport.ssl, "create_default_context", lambda: Context()
+    )
     result = network_transport.fetch_public_http(
         "https://example.com/", resolver=_resolver
     )

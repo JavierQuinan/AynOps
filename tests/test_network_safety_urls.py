@@ -1,4 +1,5 @@
 """Offline tests for strict URL parsing and resolver injection."""
+
 import socket
 
 import pytest
@@ -10,24 +11,37 @@ from utils.network_safety import (
 )
 
 
-@pytest.mark.parametrize(("url", "expected"), [
-    ("https://example.com/path?q=1", ("example.com", 443)),
-    ("http://example.com:8080/", ("example.com", 8080)),
-    ("https://[2606:4700:4700::1111]/", ("2606:4700:4700::1111", 443)),
-])
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("https://example.com/path?q=1", ("example.com", 443)),
+        ("http://example.com:8080/", ("example.com", 8080)),
+        ("https://[2606:4700:4700::1111]/", ("2606:4700:4700::1111", 443)),
+    ],
+)
 def test_valid_http_targets(url, expected):
     assert validate_http_target(url) == expected
 
 
-@pytest.mark.parametrize("url", [
-    "file:///etc/passwd", "gopher://example.com", "//example.com",
-    "https://user:pass@example.com", "https://example.com:99999",
-    "https://example.com:0", "https://example.com:abc",
-    "https://[::1", "https://example.com/#fragment",
-    "https://example.com/\nadmin", "https://example.com/\tadmin",
-    "https://example.com/\radmin", "https://example.com/\x7fadmin",
-    "https://",
-])
+@pytest.mark.parametrize(
+    "url",
+    [
+        "file:///etc/passwd",
+        "gopher://example.com",
+        "//example.com",
+        "https://user:pass@example.com",
+        "https://example.com:99999",
+        "https://example.com:0",
+        "https://example.com:abc",
+        "https://[::1",
+        "https://example.com/#fragment",
+        "https://example.com/\nadmin",
+        "https://example.com/\tadmin",
+        "https://example.com/\radmin",
+        "https://example.com/\x7fadmin",
+        "https://",
+    ],
+)
 def test_invalid_http_targets(url):
     with pytest.raises(UnsafeDestination):
         validate_http_target(url)
