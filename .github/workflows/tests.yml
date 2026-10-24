@@ -5,7 +5,7 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   test:
@@ -22,11 +22,6 @@ jobs:
 
       - run: uv sync --locked
 
-      - name: Format isolated research files before validation
-        if: github.ref == 'refs/heads/security/network-safety-research'
-        run: |
-          uv run ruff format tests/test_network_*.py utils/network_*.py
-
       - run: uv run pytest
 
       - name: Run Ruff lint checks
@@ -35,12 +30,3 @@ jobs:
       - name: Check Ruff formatting
         run: uv run ruff format --check .
 
-      - name: Commit verified formatting on research branch
-        if: github.ref == 'refs/heads/security/network-safety-research' && github.actor != 'github-actions[bot]'
-        run: |
-          git add -- tests/test_network_*.py utils/network_*.py
-          if git diff --cached --quiet; then exit 0; fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "style(security-research): Ruff format verified research files"
-          git push origin HEAD:security/network-safety-research
