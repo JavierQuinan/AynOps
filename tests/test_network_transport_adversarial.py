@@ -1,5 +1,6 @@
 """Additional offline adversarial tests for the experimental HTTP transport."""
 import socket
+from typing import ClassVar
 
 import pytest
 
@@ -27,8 +28,8 @@ class FakeResponse:
 
 
 class FakeConnection:
-    responses = []
-    connections = []
+    responses: ClassVar[list] = []
+    connections: ClassVar[list] = []
 
     def __init__(self, host, port, timeout):
         self.host = host
