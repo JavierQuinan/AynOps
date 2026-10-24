@@ -111,3 +111,37 @@ def test_redirect_budget_enforced(fake_transport):
             "http://example.com/", resolver=_resolver, max_redirects=0
         )
     assert fake_transport.connections[0].closed
+
+
+def test_https_downgrade_redirect_rejected_before_second_connection(
+    fake_transport, monkeypatch
+):
+    fake_transport.responses = [FakeResponse(302, "http://public.example/")]
+    monkeypatch.setattr(
+        network_transport.ssl,
+        "create_default_context",
+        lambda: type("Context", (), {"wrap_socket": lambda self, sock, *, server_hostname: sock})(),
+    )
+    with pytest.raises(UnsafeDestination, match="downgrade"):
+        network_transport.fetch_public_http("https://example.com/", resolver=_resolver)
+    assert len(fake_transport.connections) == 1
+    assert fake_transport.connections[0].closed
+
+
+def test_dns_rebinding_on_redirect_is_rejected(fake_transport):
+    fake_transport.responses = [FakeResponse(302, "/next")]
+    resolutions = 0
+
+    def changing_resolver(host, port, **kwargs):
+        nonlocal resolutions
+        resolutions += 1
+        address = "8.8.8.8" if resolutions == 1 else "127.0.0.1"
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (address, port))]
+
+    with pytest.raises(UnsafeDestination, match="Non-public"):
+        network_transport.fetch_public_http(
+            "http://example.com/", resolver=changing_resolver
+        )
+    assert resolutions == 2
+    assert len(fake_transport.connections) == 1
+    assert fake_transport.connections[0].closed
