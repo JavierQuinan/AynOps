@@ -1,0 +1,107 @@
+"""Additional offline adversarial tests for the experimental HTTP transport."""
+import socket
+
+import pytest
+
+from utils import network_transport
+from utils.network_safety import UnsafeDestination
+
+
+class FakeSocket:
+    def getpeername(self):
+        return ("8.8.8.8", 443)
+
+
+class FakeResponse:
+    def __init__(self, status=200, location=None, body=b"ok"):
+        self.status, self.location, self.body = status, location, body
+
+    def getheaders(self):
+        return [("Location", self.location)] if self.location else []
+
+    def getheader(self, name):
+        return self.location if name.lower() == "location" else None
+
+    def read(self, limit):
+        return self.body[:limit]
+
+
+class FakeConnection:
+    responses = []
+    connections = []
+
+    def __init__(self, host, port, timeout):
+        self.host = host
+        self.sock = None
+        self.closed = False
+        self.__class__.connections.append(self)
+
+    def connect(self):
+        self.sock = FakeSocket()
+
+    def putrequest(self, *args, **kwargs):
+        pass
+
+    def putheader(self, *args):
+        pass
+
+    def endheaders(self):
+        pass
+
+    def getresponse(self):
+        return self.__class__.responses.pop(0)
+
+    def close(self):
+        self.closed = True
+
+
+def _resolver(host, port, **kwargs):
+    if host == "internal.example":
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", port))]
+    return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("8.8.8.8", port))]
+
+
+@pytest.fixture
+def fake_transport(monkeypatch):
+    FakeConnection.connections.clear()
+    FakeConnection.responses = []
+    monkeypatch.setattr(network_transport.http.client, "HTTPConnection", FakeConnection)
+    return FakeConnection
+
+
+def test_redirect_resolves_and_checks_next_destination(fake_transport):
+    fake_transport.responses = [FakeResponse(302, "http://internal.example/")]
+    with pytest.raises(UnsafeDestination):
+        network_transport.fetch_public_http("http://example.com/", resolver=_resolver)
+    assert len(fake_transport.connections) == 1
+    assert fake_transport.connections[0].closed
+
+
+def test_redirect_to_public_destination_reconnects(fake_transport):
+    fake_transport.responses = [
+        FakeResponse(302, "http://public.example/next"),
+        FakeResponse(200, body=b"complete"),
+    ]
+    result = network_transport.fetch_public_http("http://example.com/", resolver=_resolver)
+    assert result.url == "http://public.example/next"
+    assert result.body == b"complete"
+    assert len(fake_transport.connections) == 2
+    assert all(conn.host == "8.8.8.8" and conn.closed for conn in fake_transport.connections)
+
+
+def test_response_body_limit_enforced(fake_transport):
+    fake_transport.responses = [FakeResponse(200, body=b"x" * 9)]
+    with pytest.raises(UnsafeDestination, match="body exceeds"):
+        network_transport.fetch_public_http(
+            "http://example.com/", resolver=_resolver, max_body_bytes=8
+        )
+    assert fake_transport.connections[0].closed
+
+
+def test_redirect_budget_enforced(fake_transport):
+    fake_transport.responses = [FakeResponse(302, "/again")]
+    with pytest.raises(UnsafeDestination, match="Redirect limit"):
+        network_transport.fetch_public_http(
+            "http://example.com/", resolver=_resolver, max_redirects=0
+        )
+    assert fake_transport.connections[0].closed
