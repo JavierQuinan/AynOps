@@ -117,6 +117,7 @@ def test_https_downgrade_redirect_rejected_before_second_connection(
     fake_transport, monkeypatch
 ):
     fake_transport.responses = [FakeResponse(302, "http://public.example/")]
+
     class Context:
         def wrap_socket(self, sock, *, server_hostname):
             return sock
@@ -144,4 +145,41 @@ def test_dns_rebinding_on_redirect_is_rejected(fake_transport):
         )
     assert resolutions == 2
     assert len(fake_transport.connections) == 1
+    assert fake_transport.connections[0].closed
+
+
+def test_tls_handshake_failure_closes_connection(fake_transport, monkeypatch):
+    fake_transport.responses = [FakeResponse(200)]
+
+    class RejectingContext:
+        def wrap_socket(self, sock, *, server_hostname):
+            assert server_hostname == "example.com"
+            raise network_transport.ssl.SSLCertVerificationError("certificate rejected")
+
+    monkeypatch.setattr(
+        network_transport.ssl, "create_default_context", RejectingContext
+    )
+    with pytest.raises(network_transport.ssl.SSLCertVerificationError):
+        network_transport.fetch_public_http("https://example.com/", resolver=_resolver)
+    assert len(fake_transport.connections) == 1
+    assert fake_transport.connections[0].closed
+
+
+def test_response_at_exact_body_limit_is_accepted(fake_transport):
+    fake_transport.responses = [FakeResponse(200, body=b"12345678")]
+    result = network_transport.fetch_public_http(
+        "http://example.com/", resolver=_resolver, max_body_bytes=8
+    )
+    assert result.body == b"12345678"
+    assert fake_transport.connections[0].closed
+
+
+def test_read_failure_still_closes_connection(fake_transport, monkeypatch):
+    class BrokenResponse(FakeResponse):
+        def read(self, limit):
+            raise OSError("connection interrupted")
+
+    fake_transport.responses = [BrokenResponse()]
+    with pytest.raises(OSError, match="interrupted"):
+        network_transport.fetch_public_http("http://example.com/", resolver=_resolver)
     assert fake_transport.connections[0].closed
