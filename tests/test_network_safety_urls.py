@@ -22,8 +22,11 @@ def test_valid_http_targets(url, expected):
 @pytest.mark.parametrize("url", [
     "file:///etc/passwd", "gopher://example.com", "//example.com",
     "https://user:pass@example.com", "https://example.com:99999",
-    "https://example.com:abc", "https://[::1", "https://example.com/#fragment",
-    "https://example.com/\nadmin", "https://",
+    "https://example.com:0", "https://example.com:abc",
+    "https://[::1", "https://example.com/#fragment",
+    "https://example.com/\nadmin", "https://example.com/\tadmin",
+    "https://example.com/\radmin", "https://example.com/\x7fadmin",
+    "https://",
 ])
 def test_invalid_http_targets(url):
     with pytest.raises(UnsafeDestination):
