@@ -12,6 +12,9 @@ class FakeSocket:
     def __init__(self, peer="8.8.8.8"):
         self.peer = peer
 
+    def settimeout(self, value):
+        self.timeout = value
+
     def getpeername(self):
         return (self.peer, 443)
 
