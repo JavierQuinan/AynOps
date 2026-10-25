@@ -17,6 +17,8 @@ from utils.network_request_plan import plan_public_request, verify_connection_pe
 from utils.network_safety import UnsafeDestination
 
 MAX_RESPONSE_BYTES = 512_000
+MAX_RESPONSE_HEADERS = 100
+MAX_RESPONSE_HEADER_BYTES = 16_384
 
 
 @dataclass(frozen=True)
@@ -78,6 +80,14 @@ def fetch_public_http(
             connection.endheaders()
             response = connection.getresponse()
             headers = tuple(response.getheaders())
+            if len(headers) > MAX_RESPONSE_HEADERS:
+                raise UnsafeDestination("Response header count exceeds configured limit")
+            header_bytes = sum(
+                len(name.encode("utf-8")) + len(value.encode("utf-8")) + 4
+                for name, value in headers
+            )
+            if header_bytes > MAX_RESPONSE_HEADER_BYTES:
+                raise UnsafeDestination("Response headers exceed configured size limit")
             location = response.getheader("Location")
             next_url = next_redirect_url(current, response.status, location)
             if next_url is not None:
