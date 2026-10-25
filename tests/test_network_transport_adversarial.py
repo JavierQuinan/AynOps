@@ -249,3 +249,24 @@ def test_excessive_response_header_bytes_are_rejected(fake_transport):
     with pytest.raises(UnsafeDestination, match="headers exceed"):
         network_transport.fetch_public_http("http://example.com/", resolver=_resolver)
     assert fake_transport.connections[0].closed
+
+
+def test_total_deadline_rejected_before_connect(fake_transport, monkeypatch):
+    ticks = iter([0.0, 2.0])
+    monkeypatch.setattr(network_transport.time, "monotonic", lambda: next(ticks))
+    with pytest.raises(UnsafeDestination, match="deadline"):
+        network_transport.fetch_public_http(
+            "http://example.com/", resolver=_resolver, total_timeout=1.0
+        )
+    assert fake_transport.connections == []
+
+
+def test_total_deadline_rejected_after_response(fake_transport, monkeypatch):
+    fake_transport.responses = [FakeResponse(200)]
+    ticks = iter([0.0, 0.1, 0.2, 2.0])
+    monkeypatch.setattr(network_transport.time, "monotonic", lambda: next(ticks))
+    with pytest.raises(UnsafeDestination, match="deadline"):
+        network_transport.fetch_public_http(
+            "http://example.com/", resolver=_resolver, total_timeout=1.0
+        )
+    assert fake_transport.connections[0].closed
