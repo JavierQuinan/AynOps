@@ -46,3 +46,11 @@ F401). The research branch subsequently corrected these issues. Earlier
 workflow runs on individual fix commits may represent intermediate branch
 states; a fresh complete CI run is required before claiming success.
 The pinned-IP transport remains experimental and is not integrated into MCP.
+
+## CI evidence — 2026-10-25
+- Commit 3089340: full suite 685 passed, 3 failed, 6 xfailed; isolated suite 70 passed, 3 failed. Two integration test doubles lacked settimeout, and one staged-clock assertion expected 0.3 rather than the observed 0.2.
+- Commit 1650078: full suite 687 passed, 1 failed, 6 xfailed; isolated suite 72 passed, 1 failed. The remaining failure was the staged-clock assertion.
+- Commit 9759dc6 updated that assertion to 0.2. A successful CI run for this commit has not been independently verified.
+- Commit d4348e6 enabled workflow_dispatch for the full Tests workflow; the isolated research workflow already supports manual dispatch. Neither commit is evidence of a passing run.
+- Remaining engineering risks: the header count and byte limits are checked after http.client parses headers; the total deadline is cooperative and does not guarantee a hard wall-clock bound across blocking DNS, TLS, or slow streaming reads.
+- Do not integrate the experimental transport into MCP or claim a complete SSRF mitigation until these limits and compatibility are validated.
