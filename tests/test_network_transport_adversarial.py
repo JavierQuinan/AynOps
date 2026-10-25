@@ -227,3 +227,25 @@ def test_tls_context_receives_original_hostname(fake_transport, monkeypatch):
     assert seen == ["example.com"]
     assert fake_transport.connections[0].host == "8.8.8.8"
     assert fake_transport.connections[0].closed
+
+
+def test_excessive_response_header_count_is_rejected(fake_transport):
+    class TooManyHeaders(FakeResponse):
+        def getheaders(self):
+            return [("X-Test", "ok")] * (network_transport.MAX_RESPONSE_HEADERS + 1)
+
+    fake_transport.responses = [TooManyHeaders()]
+    with pytest.raises(UnsafeDestination, match="header count"):
+        network_transport.fetch_public_http("http://example.com/", resolver=_resolver)
+    assert fake_transport.connections[0].closed
+
+
+def test_excessive_response_header_bytes_are_rejected(fake_transport):
+    class HugeHeader(FakeResponse):
+        def getheaders(self):
+            return [("X-Test", "x" * network_transport.MAX_RESPONSE_HEADER_BYTES)]
+
+    fake_transport.responses = [HugeHeader()]
+    with pytest.raises(UnsafeDestination, match="headers exceed"):
+        network_transport.fetch_public_http("http://example.com/", resolver=_resolver)
+    assert fake_transport.connections[0].closed
