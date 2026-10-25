@@ -285,3 +285,13 @@ def test_socket_timeout_refreshed_between_stages(fake_transport, monkeypatch):
     assert result.body == b"ok"
     assert fake_transport.connections[0].sock.timeout == pytest.approx(0.2)
     assert fake_transport.connections[0].closed
+
+
+def test_response_parsing_error_closes_connection(fake_transport, monkeypatch):
+    def fail_response(self):
+        raise OSError("response parsing failed")
+
+    monkeypatch.setattr(FakeConnection, "getresponse", fail_response)
+    with pytest.raises(OSError, match="response parsing failed"):
+        network_transport.fetch_public_http("http://example.com/", resolver=_resolver)
+    assert fake_transport.connections[0].closed
