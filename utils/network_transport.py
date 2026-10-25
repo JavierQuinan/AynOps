@@ -92,7 +92,9 @@ def fetch_public_http(
                 raise UnsafeDestination("Total HTTP deadline exceeded")
             headers = tuple(response.getheaders())
             if len(headers) > MAX_RESPONSE_HEADERS:
-                raise UnsafeDestination("Response header count exceeds configured limit")
+                raise UnsafeDestination(
+                    "Response header count exceeds configured limit"
+                )
             header_bytes = sum(
                 len(name.encode("utf-8")) + len(value.encode("utf-8")) + 4
                 for name, value in headers
