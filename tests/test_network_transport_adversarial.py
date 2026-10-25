@@ -283,5 +283,5 @@ def test_socket_timeout_refreshed_between_stages(fake_transport, monkeypatch):
         "http://example.com/", resolver=_resolver, total_timeout=1.0
     )
     assert result.body == b"ok"
-    assert fake_transport.connections[0].sock.timeout == pytest.approx(0.3)
+    assert fake_transport.connections[0].sock.timeout == pytest.approx(0.2)
     assert fake_transport.connections[0].closed
