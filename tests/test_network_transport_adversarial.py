@@ -10,6 +10,9 @@ from utils.network_safety import UnsafeDestination
 
 
 class FakeSocket:
+    def settimeout(self, value):
+        self.timeout = value
+
     def getpeername(self):
         return ("8.8.8.8", 443)
 
@@ -269,4 +272,16 @@ def test_total_deadline_rejected_after_response(fake_transport, monkeypatch):
         network_transport.fetch_public_http(
             "http://example.com/", resolver=_resolver, total_timeout=1.0
         )
+    assert fake_transport.connections[0].closed
+
+
+def test_socket_timeout_refreshed_between_stages(fake_transport, monkeypatch):
+    fake_transport.responses = [FakeResponse(200, body=b"ok")]
+    ticks = iter([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
+    monkeypatch.setattr(network_transport.time, "monotonic", lambda: next(ticks))
+    result = network_transport.fetch_public_http(
+        "http://example.com/", resolver=_resolver, total_timeout=1.0
+    )
+    assert result.body == b"ok"
+    assert fake_transport.connections[0].sock.timeout == pytest.approx(0.2)
     assert fake_transport.connections[0].closed
