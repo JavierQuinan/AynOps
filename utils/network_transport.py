@@ -70,6 +70,10 @@ def fetch_public_http(
             if connection.sock is None:
                 raise UnsafeDestination("HTTP connection has no socket")
             verify_connection_peer(plan, connection.sock.getpeername()[0])
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise UnsafeDestination("Total HTTP deadline exceeded")
+            connection.sock.settimeout(min(timeout, remaining))
             if plan.tls:
                 # HTTPSConnection normally derives SNI from its host. Since our
                 # host is the pinned IP, explicitly wrap with the original DNS
@@ -78,6 +82,10 @@ def fetch_public_http(
                 connection.sock = context.wrap_socket(
                     connection.sock, server_hostname=plan.hostname
                 )
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise UnsafeDestination("Total HTTP deadline exceeded")
+            connection.sock.settimeout(min(timeout, remaining))
             connection.putrequest(
                 "GET", path, skip_host=True, skip_accept_encoding=True
             )
@@ -87,6 +95,10 @@ def fetch_public_http(
             )
             connection.putheader("Accept-Encoding", "identity")
             connection.endheaders()
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise UnsafeDestination("Total HTTP deadline exceeded")
+            connection.sock.settimeout(min(timeout, remaining))
             response = connection.getresponse()
             if time.monotonic() >= deadline:
                 raise UnsafeDestination("Total HTTP deadline exceeded")
@@ -110,6 +122,10 @@ def fetch_public_http(
                 continue
             if time.monotonic() >= deadline:
                 raise UnsafeDestination("Total HTTP deadline exceeded")
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise UnsafeDestination("Total HTTP deadline exceeded")
+            connection.sock.settimeout(min(timeout, remaining))
             body = response.read(max_body_bytes + 1)
             if time.monotonic() >= deadline:
                 raise UnsafeDestination("Total HTTP deadline exceeded")
