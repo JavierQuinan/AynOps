@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import http.client
 import ssl
+import time
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
@@ -36,24 +37,32 @@ def fetch_public_http(
     timeout: float = 10.0,
     max_redirects: int = 5,
     max_body_bytes: int = MAX_RESPONSE_BYTES,
+    total_timeout: float = 30.0,
 ) -> SafeHTTPResult:
     """Fetch a public HTTP(S) resource using direct pinned-IP connections.
 
     This research implementation intentionally does not support proxies,
     cookies, HTTP/2, compression negotiation, or private network targets.
     """
-    if timeout <= 0 or max_redirects < 0 or max_body_bytes < 0:
+    if timeout <= 0 or total_timeout <= 0 or max_redirects < 0 or max_body_bytes < 0:
         raise ValueError("Invalid HTTP resource limits")
+    deadline = time.monotonic() + total_timeout
     current = url
     for hop in range(max_redirects + 1):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise UnsafeDestination("Total HTTP deadline exceeded")
         plan = plan_public_request(current, resolver=resolver)
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise UnsafeDestination("Total HTTP deadline exceeded")
         parts = urlsplit(current)
         path = parts.path or "/"
         if parts.query:
             path += "?" + parts.query
         authority = parts.netloc
         connection = http.client.HTTPConnection(
-            plan.address, plan.port, timeout=timeout
+            plan.address, plan.port, timeout=min(timeout, remaining)
         )
         try:
             # Direct socket connect is pinned to the vetted numeric address.
@@ -79,6 +88,8 @@ def fetch_public_http(
             connection.putheader("Accept-Encoding", "identity")
             connection.endheaders()
             response = connection.getresponse()
+            if time.monotonic() >= deadline:
+                raise UnsafeDestination("Total HTTP deadline exceeded")
             headers = tuple(response.getheaders())
             if len(headers) > MAX_RESPONSE_HEADERS:
                 raise UnsafeDestination("Response header count exceeds configured limit")
@@ -95,7 +106,11 @@ def fetch_public_http(
                     raise UnsafeDestination("Redirect limit exceeded")
                 current = next_url
                 continue
+            if time.monotonic() >= deadline:
+                raise UnsafeDestination("Total HTTP deadline exceeded")
             body = response.read(max_body_bytes + 1)
+            if time.monotonic() >= deadline:
+                raise UnsafeDestination("Total HTTP deadline exceeded")
             if len(body) > max_body_bytes:
                 raise UnsafeDestination("Response body exceeds configured limit")
             return SafeHTTPResult(
