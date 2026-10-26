@@ -22,6 +22,42 @@ MAX_RESPONSE_HEADERS = 100
 MAX_RESPONSE_HEADER_BYTES = 16_384
 
 
+class _HeaderBudgetReader:
+    """Count bytes before the standard library accepts response header lines."""
+
+    def __init__(self, source):
+        self.source = source
+        self.used = 0
+        self.lines = 0
+
+    def readline(self, limit=-1):
+        line = self.source.readline(limit)
+        self.used += len(line)
+        self.lines += 1
+        if self.used > MAX_RESPONSE_HEADER_BYTES:
+            raise UnsafeDestination("Response headers exceed configured size limit")
+        if self.lines > MAX_RESPONSE_HEADERS + 1:
+            raise UnsafeDestination("Response header count exceeds configured limit")
+        return line
+
+
+class _BoundedHTTPResponse(http.client.HTTPResponse):
+    """Apply header limits while parsing, not after getheaders()."""
+
+    def _read_status(self):
+        result = super()._read_status()
+        if not isinstance(self.fp, _HeaderBudgetReader):
+            self.fp = _HeaderBudgetReader(self.fp)
+        return result
+
+    def begin(self):
+        try:
+            return super().begin()
+        finally:
+            if isinstance(self.fp, _HeaderBudgetReader):
+                self.fp = self.fp.source
+
+
 @dataclass(frozen=True)
 class SafeHTTPResult:
     url: str
@@ -64,6 +100,7 @@ def fetch_public_http(
         connection = http.client.HTTPConnection(
             plan.address, plan.port, timeout=min(timeout, remaining)
         )
+        connection.response_class = _BoundedHTTPResponse
         try:
             # Direct socket connect is pinned to the vetted numeric address.
             connection.connect()
