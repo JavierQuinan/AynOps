@@ -36,7 +36,7 @@ class _HeaderBudgetReader:
         self.lines += 1
         if self.used > MAX_RESPONSE_HEADER_BYTES:
             raise UnsafeDestination("Response headers exceed configured size limit")
-        if self.lines > MAX_RESPONSE_HEADERS + 1:
+        if self.lines > MAX_RESPONSE_HEADERS:
             raise UnsafeDestination("Response header count exceeds configured limit")
         return line
 
