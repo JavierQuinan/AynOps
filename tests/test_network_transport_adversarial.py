@@ -346,3 +346,26 @@ def test_real_parser_accepts_small_response():
     assert response.status == 200
     assert response.getheader("Content-Length") == "2"
     assert response.read() == b"ok"
+
+
+@pytest.mark.parametrize(
+    ("limits", "bad_value"),
+    [
+        ({"timeout": float("nan")}, "nan timeout"),
+        ({"timeout": float("inf")}, "infinite timeout"),
+        ({"total_timeout": float("nan")}, "nan deadline"),
+        ({"total_timeout": float("-inf")}, "negative infinite deadline"),
+        ({"max_redirects": 1.5}, "fractional redirect count"),
+        ({"max_redirects": True}, "boolean redirect count"),
+        ({"max_body_bytes": 2.5}, "fractional body budget"),
+        ({"max_body_bytes": True}, "boolean body budget"),
+    ],
+)
+def test_malformed_resource_limits_fail_before_network(
+    fake_transport, limits, bad_value
+):
+    with pytest.raises(ValueError, match="Invalid HTTP resource limits"):
+        network_transport.fetch_public_http(
+            "http://example.com/", resolver=_resolver, **limits
+        )
+    assert fake_transport.connections == [], bad_value
