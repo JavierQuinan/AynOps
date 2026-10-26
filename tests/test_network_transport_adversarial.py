@@ -295,3 +295,14 @@ def test_response_parsing_error_closes_connection(fake_transport, monkeypatch):
     with pytest.raises(OSError, match="response parsing failed"):
         network_transport.fetch_public_http("http://example.com/", resolver=_resolver)
     assert fake_transport.connections[0].closed
+
+
+def test_malformed_headers_close_connection(fake_transport):
+    class BrokenHeaders(FakeResponse):
+        def getheaders(self):
+            raise OSError("header parsing failed")
+
+    fake_transport.responses = [BrokenHeaders()]
+    with pytest.raises(OSError, match="header parsing failed"):
+        network_transport.fetch_public_http("http://example.com/", resolver=_resolver)
+    assert fake_transport.connections[0].closed
