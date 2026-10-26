@@ -1,5 +1,6 @@
 """Additional offline adversarial tests for the experimental HTTP transport."""
 
+import io
 import socket
 from typing import ClassVar
 
@@ -306,3 +307,42 @@ def test_malformed_headers_close_connection(fake_transport):
     with pytest.raises(OSError, match="header parsing failed"):
         network_transport.fetch_public_http("http://example.com/", resolver=_resolver)
     assert fake_transport.connections[0].closed
+
+
+class _RawResponseSocket:
+    def __init__(self, raw):
+        self.raw = raw
+
+    def makefile(self, mode):
+        return io.BytesIO(self.raw)
+
+
+def test_real_parser_rejects_oversized_headers_before_acceptance():
+    raw = (
+        b"HTTP/1.1 200 OK\r\nX-Flood: "
+        + b"x" * network_transport.MAX_RESPONSE_HEADER_BYTES
+        + b"\r\n\r\n"
+    )
+    response = network_transport._BoundedHTTPResponse(_RawResponseSocket(raw))
+    with pytest.raises(UnsafeDestination, match="headers exceed"):
+        response.begin()
+
+
+def test_real_parser_rejects_too_many_header_lines():
+    raw = (
+        b"HTTP/1.1 200 OK\r\n"
+        + b"X-Flood: x\r\n" * (network_transport.MAX_RESPONSE_HEADERS + 1)
+        + b"\r\n"
+    )
+    response = network_transport._BoundedHTTPResponse(_RawResponseSocket(raw))
+    with pytest.raises(UnsafeDestination, match="header count"):
+        response.begin()
+
+
+def test_real_parser_accepts_small_response():
+    raw = b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok"
+    response = network_transport._BoundedHTTPResponse(_RawResponseSocket(raw))
+    response.begin()
+    assert response.status == 200
+    assert response.getheader("Content-Length") == "2"
+    assert response.read() == b"ok"
