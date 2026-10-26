@@ -8,6 +8,7 @@ and certificate verification. No ambient HTTP proxy is consulted.
 from __future__ import annotations
 
 import http.client
+import math
 import ssl
 import time
 from dataclasses import dataclass
@@ -80,7 +81,18 @@ def fetch_public_http(
     This research implementation intentionally does not support proxies,
     cookies, HTTP/2, compression negotiation, or private network targets.
     """
-    if timeout <= 0 or total_timeout <= 0 or max_redirects < 0 or max_body_bytes < 0:
+    if (
+        type(timeout) not in (int, float)
+        or not math.isfinite(timeout)
+        or timeout <= 0
+        or type(total_timeout) not in (int, float)
+        or not math.isfinite(total_timeout)
+        or total_timeout <= 0
+        or type(max_redirects) is not int
+        or max_redirects < 0
+        or type(max_body_bytes) is not int
+        or max_body_bytes < 0
+    ):
         raise ValueError("Invalid HTTP resource limits")
     deadline = time.monotonic() + total_timeout
     current = url
